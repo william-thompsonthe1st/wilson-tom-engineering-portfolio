@@ -16,24 +16,7 @@ const rim = new THREE.PointLight(0x62d7ff, 10, 11); rim.position.set(3, 3, -3); 
 const uav = new THREE.Group();
 uav.scale.setScalar(1.12);
 
-function compositeTexture() {
-  const detailCanvas = document.createElement('canvas');
-  detailCanvas.width = 96; detailCanvas.height = 96;
-  const context = detailCanvas.getContext('2d');
-  context.fillStyle = '#334b55'; context.fillRect(0, 0, 96, 96);
-  for (let y = -96; y < 192; y += 8) {
-    context.strokeStyle = 'rgba(173,218,229,.07)'; context.lineWidth = 1;
-    context.beginPath(); context.moveTo(-16, y); context.lineTo(112, y + 128); context.stroke();
-    context.strokeStyle = 'rgba(5,14,19,.1)'; context.beginPath(); context.moveTo(112, y); context.lineTo(-16, y + 128); context.stroke();
-  }
-  const texture = new THREE.CanvasTexture(detailCanvas);
-  texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping; texture.repeat.set(5, 9);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-const composite = compositeTexture();
-const airframe = new THREE.MeshPhysicalMaterial({ color: 0xffffff, map: composite, metalness: 0.56, roughness: 0.3, roughnessMap: composite, clearcoat: 0.28, clearcoatRoughness: 0.22, side: THREE.DoubleSide });
+const airframe = new THREE.MeshPhysicalMaterial({ color: 0x314b58, metalness: 0.56, roughness: 0.3, clearcoat: 0.28, clearcoatRoughness: 0.22, side: THREE.DoubleSide });
 const panel = new THREE.MeshPhysicalMaterial({ color: 0x54727d, metalness: 0.43, roughness: 0.36, clearcoat: 0.18, side: THREE.DoubleSide });
 const dark = new THREE.MeshPhysicalMaterial({ color: 0x071117, metalness: 0.35, roughness: 0.18, clearcoat: 0.65, clearcoatRoughness: 0.1 });
 
