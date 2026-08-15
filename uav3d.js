@@ -9,110 +9,77 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 100);
 camera.position.set(0, 3.5, 7.5);
 camera.lookAt(0, 0, 0);
-scene.add(new THREE.HemisphereLight(0xc9efff, 0x0a121b, 2.0));
-const key = new THREE.DirectionalLight(0xe9f8ff, 2.9); key.position.set(-4, 6, 4); scene.add(key);
-const rim = new THREE.PointLight(0x52cfff, 12, 11); rim.position.set(3.2, 2.8, -3); scene.add(rim);
+scene.add(new THREE.HemisphereLight(0xd2f5ff, 0x091118, 2.1));
+const key = new THREE.DirectionalLight(0xf2fbff, 3.3); key.position.set(-4, 6, 4); scene.add(key);
+const rim = new THREE.PointLight(0x50cbff, 9, 10); rim.position.set(3, 2, -3); scene.add(rim);
 
-const cadUav = new THREE.Group();
+const uav = new THREE.Group();
 const modelScale = 1.14;
-cadUav.scale.setScalar(modelScale);
+uav.scale.setScalar(modelScale);
 
-const cadBody = new THREE.MeshStandardMaterial({ color: 0x153746, metalness: 0.58, roughness: 0.32, transparent: true, opacity: 0.94 });
-const cadPanel = new THREE.MeshStandardMaterial({ color: 0x2c6579, metalness: 0.48, roughness: 0.4, transparent: true, opacity: 0.88 });
-const cadDark = new THREE.MeshStandardMaterial({ color: 0x07141d, metalness: 0.52, roughness: 0.28 });
-const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xa6efff, transparent: true, opacity: 0.76 });
-const guideMaterial = new THREE.LineBasicMaterial({ color: 0x53b9dd, transparent: true, opacity: 0.58 });
+// A new smooth shell, proportioned from the inspection view rather than assembled from boxes.
+const shellShape = new THREE.Shape();
+shellShape.moveTo(0, 1.78);
+shellShape.bezierCurveTo(0.08, 1.78, 0.16, 1.62, 0.19, 1.42);
+shellShape.lineTo(0.26, 0.48);
+shellShape.bezierCurveTo(0.28, 0.39, 0.4, 0.35, 0.58, 0.34);
+shellShape.lineTo(1.8, 0.24);
+shellShape.bezierCurveTo(1.96, 0.23, 2.0, 0.12, 1.98, -0.05);
+shellShape.bezierCurveTo(1.98, -0.11, 1.92, -0.14, 1.8, -0.16);
+shellShape.lineTo(0.37, -0.32);
+shellShape.lineTo(0.28, -0.96);
+shellShape.bezierCurveTo(0.3, -1.08, 0.57, -1.3, 0.7, -1.43);
+shellShape.lineTo(0.64, -1.7);
+shellShape.lineTo(0.25, -1.55);
+shellShape.lineTo(0.16, -1.78);
+shellShape.lineTo(0, -1.84);
+shellShape.lineTo(-0.16, -1.78);
+shellShape.lineTo(-0.25, -1.55);
+shellShape.lineTo(-0.64, -1.7);
+shellShape.lineTo(-0.7, -1.43);
+shellShape.bezierCurveTo(-0.57, -1.3, -0.3, -1.08, -0.28, -0.96);
+shellShape.lineTo(-0.37, -0.32);
+shellShape.lineTo(-1.8, -0.16);
+shellShape.bezierCurveTo(-1.92, -0.14, -1.98, -0.11, -1.98, -0.05);
+shellShape.bezierCurveTo(-2.0, 0.12, -1.96, 0.23, -1.8, 0.24);
+shellShape.lineTo(-0.58, 0.34);
+shellShape.bezierCurveTo(-0.4, 0.35, -0.28, 0.39, -0.26, 0.48);
+shellShape.lineTo(-0.19, 1.42);
+shellShape.bezierCurveTo(-0.16, 1.62, -0.08, 1.78, 0, 1.78);
 
-// This outline follows the inspection silhouette, but is extruded into a shallow CAD solid.
-const planformOutline = [
-  [0, -1.78], [0.16, -1.57], [0.24, -1.12], [0.27, -0.47], [1.81, -0.34],
-  [1.95, -0.17], [1.98, 0.09], [0.37, 0.32], [0.28, 0.96], [0.7, 1.43],
-  [0.64, 1.7], [0.25, 1.55], [0.16, 1.78], [0, 1.84], [-0.16, 1.78],
-  [-0.25, 1.55], [-0.64, 1.7], [-0.7, 1.43], [-0.28, 0.96], [-0.37, 0.32],
-  [-1.98, 0.09], [-1.95, -0.17], [-1.81, -0.34], [-0.27, -0.47], [-0.24, -1.12], [-0.16, -1.57],
-];
+const shellGeometry = new THREE.ExtrudeGeometry(shellShape, {
+  depth: 0.3,
+  bevelEnabled: true,
+  bevelSegments: 6,
+  bevelSize: 0.08,
+  bevelThickness: 0.08,
+  curveSegments: 32,
+});
+const shellMaterial = new THREE.MeshPhysicalMaterial({ color: 0x173b48, metalness: 0.62, roughness: 0.27, clearcoat: 0.4, clearcoatRoughness: 0.25 });
+const shell = new THREE.Mesh(shellGeometry, shellMaterial);
+shell.rotation.x = -Math.PI / 2;
+uav.add(shell);
 
-function shapeFrom(points) {
-  const shape = new THREE.Shape();
-  shape.moveTo(points[0][0], -points[0][1]);
-  points.slice(1).forEach(([x, z]) => shape.lineTo(x, -z));
-  shape.closePath();
-  return shape;
-}
-
-function extrudedPlate(points, depth, material, y = 0) {
-  const geometry = new THREE.ExtrudeGeometry(shapeFrom(points), { depth, bevelEnabled: false, curveSegments: 1 });
-  const plate = new THREE.Mesh(geometry, material);
-  plate.rotation.x = -Math.PI / 2;
-  plate.position.y = y;
-  cadUav.add(plate);
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMaterial);
-  edges.rotation.x = -Math.PI / 2;
-  edges.position.y = y + 0.004;
-  cadUav.add(edges);
-  return plate;
-}
-
-extrudedPlate(planformOutline, 0.16, cadBody);
-extrudedPlate([[0, -1.61], [0.13, -1.43], [0.17, 1.25], [0.39, 1.55], [0, 1.44], [-0.39, 1.55], [-0.17, 1.25], [-0.13, -1.43]], 0.065, cadPanel, 0.164);
-
-// Raised components make the body read as an actual, rotatable technical model.
-const fuselage = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 2.65, 4, 14), cadBody);
-fuselage.rotation.x = Math.PI / 2;
-fuselage.position.set(0, 0.31, 0);
-cadUav.add(fuselage);
-const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.18, 18, 12), cadDark);
-canopy.scale.set(0.85, 0.42, 1.48);
-canopy.position.set(0, 0.42, -0.48);
-cadUav.add(canopy);
-const nose = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.45, 14), cadPanel);
-nose.rotation.x = -Math.PI / 2;
-nose.position.set(0, 0.31, -1.59);
-cadUav.add(nose);
-const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.2, 14), cadDark);
-motor.rotation.x = Math.PI / 2;
-motor.position.set(0, 0.33, 1.53);
-cadUav.add(motor);
-const propHub = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 10), cadPanel);
-propHub.position.set(0, 0.33, 1.7);
-cadUav.add(propHub);
-
-function addLine(points, material = guideMaterial, height = 0.19) {
-  const geometry = new THREE.BufferGeometry().setFromPoints(points.map(([x, z]) => new THREE.Vector3(x, height, z)));
-  cadUav.add(new THREE.Line(geometry, material));
-}
-
-addLine([[0, -1.72], [0, 1.74]]);
-addLine([[-1.9, -0.1], [1.9, -0.1]]);
-addLine([[-1.38, -0.24], [1.38, -0.24]]);
-addLine([[-1.1, 0.45], [1.1, 0.45]]);
-addLine([[-1.91, 0.09], [-0.37, 0.32], [-0.28, 0.96], [-0.7, 1.43]], edgeMaterial, 0.25);
-addLine([[1.91, 0.09], [0.37, 0.32], [0.28, 0.96], [0.7, 1.43]], edgeMaterial, 0.25);
-
-const texture = new THREE.TextureLoader().load('uav-topdown.png');
-texture.colorSpace = THREE.SRGBColorSpace;
-texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-// A light surface reference keeps the hangar model tied to the inspection drawing,
-// while the extruded mesh remains visible from every angle.
-const referenceDecal = new THREE.Mesh(
+const inspectionTexture = new THREE.TextureLoader().load('uav-topdown.png');
+inspectionTexture.colorSpace = THREE.SRGBColorSpace;
+inspectionTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+// The precise inspection asset becomes the upper skin, so the CAD model stays one-to-one in plan view.
+const upperSkin = new THREE.Mesh(
   new THREE.PlaneGeometry(4.05, 4.05),
-  new THREE.MeshStandardMaterial({ map: texture, transparent: true, opacity: 0.9, metalness: 0.22, roughness: 0.48, depthWrite: false, side: THREE.DoubleSide }),
+  new THREE.MeshStandardMaterial({ map: inspectionTexture, transparent: true, opacity: 0.98, metalness: 0.34, roughness: 0.39, depthWrite: false, side: THREE.DoubleSide }),
 );
-referenceDecal.rotation.x = -Math.PI / 2;
-referenceDecal.position.y = 0.31;
-cadUav.add(referenceDecal);
+upperSkin.rotation.x = -Math.PI / 2;
+upperSkin.position.y = 0.39;
+uav.add(upperSkin);
 
-const shadow = new THREE.Mesh(
-  new THREE.CircleGeometry(1.58, 44),
-  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.27, depthWrite: false }),
-);
+const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.58, 48), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, depthWrite: false }));
 shadow.rotation.x = -Math.PI / 2;
 shadow.position.y = -0.16;
 scene.add(shadow);
 
-cadUav.position.set(0, 3.8, 10);
-cadUav.rotation.set(-0.22, 0, 0);
-scene.add(cadUav);
+uav.position.set(0, 3.8, 10);
+uav.rotation.set(-0.22, 0, 0);
+scene.add(uav);
 
 let yaw = 0;
 let pitch = -0.035;
@@ -154,15 +121,15 @@ canvas.addEventListener('pointerup', (event) => {
 function frame(now) {
   const progress = THREE.MathUtils.clamp((now - landingStart) / 2200, 0, 1);
   const eased = 1 - Math.pow(1 - progress, 4);
-  cadUav.position.set(0, THREE.MathUtils.lerp(3.8, -0.01, eased), THREE.MathUtils.lerp(10, 0, eased));
-  cadUav.scale.setScalar(THREE.MathUtils.lerp(modelScale * 0.24, modelScale, eased));
+  uav.position.set(0, THREE.MathUtils.lerp(3.8, -0.01, eased), THREE.MathUtils.lerp(10, 0, eased));
+  uav.scale.setScalar(THREE.MathUtils.lerp(modelScale * 0.24, modelScale, eased));
   if (!landed) targetYaw += 0.0018;
   yaw += (targetYaw - yaw) * 0.085;
   pitch += (targetPitch - pitch) * 0.085;
-  cadUav.rotation.set(pitch, yaw, 0);
+  uav.rotation.set(pitch, yaw, 0);
   if (progress === 1) landed = true;
   shadow.scale.setScalar(THREE.MathUtils.lerp(0.25, 1, eased));
-  shadow.material.opacity = THREE.MathUtils.lerp(0.02, 0.27, eased);
+  shadow.material.opacity = THREE.MathUtils.lerp(0.02, 0.25, eased);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
