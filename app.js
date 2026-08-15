@@ -23,4 +23,7 @@ document.querySelectorAll('[data-module]').forEach(button => button.addEventList
 document.querySelectorAll('[data-panel]').forEach(button => button.addEventListener('click', () => showPanel(button.dataset.panel)));
 document.addEventListener('click', (event) => { const target = event.target.closest('[data-close]'); if(target) close(document.querySelector(`#${target.dataset.close}`)); });
 document.querySelector('#returnHangar').addEventListener('click', () => { app.classList.remove('blueprint-on'); close(detail); document.querySelector('#hangar').scrollIntoView({behavior:'smooth'}); });
-const arrival = document.querySelector('#arrival'); const endArrival = () => arrival.classList.add('done'); setTimeout(endArrival, 2200); document.querySelector('#skipArrival').addEventListener('click', endArrival);
+const arrival = document.querySelector('#arrival');
+const endArrival = () => { if(arrival.classList.contains('opening')) return; arrival.classList.add('opening'); window.setTimeout(() => arrival.classList.add('done'), 1250); };
+window.setTimeout(endArrival, 350);
+document.querySelector('#skipArrival').addEventListener('click', () => arrival.classList.add('done'));
