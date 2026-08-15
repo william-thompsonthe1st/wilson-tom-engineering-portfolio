@@ -9,6 +9,8 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 100);
 camera.position.set(0, 3.5, 7.5);
 camera.lookAt(0, 0, 0);
+const hangarCamera = camera.position.clone();
+const inspectionCamera = new THREE.Vector3(0, 7.25, 0.18);
 scene.add(new THREE.HemisphereLight(0xd9f7ff, 0x0a1218, 2.1));
 const key = new THREE.DirectionalLight(0xf4fbff, 3.3); key.position.set(-4, 6, 4); scene.add(key);
 const rim = new THREE.PointLight(0x62d7ff, 10, 11); rim.position.set(3, 3, -3); scene.add(rim);
@@ -16,9 +18,26 @@ const rim = new THREE.PointLight(0x62d7ff, 10, 11); rim.position.set(3, 3, -3); 
 const uav = new THREE.Group();
 uav.scale.setScalar(1.12);
 
-const airframe = new THREE.MeshPhysicalMaterial({ color: 0x314b58, metalness: 0.56, roughness: 0.3, clearcoat: 0.28, clearcoatRoughness: 0.22, side: THREE.DoubleSide });
-const panel = new THREE.MeshPhysicalMaterial({ color: 0x54727d, metalness: 0.43, roughness: 0.36, clearcoat: 0.18, side: THREE.DoubleSide });
-const dark = new THREE.MeshPhysicalMaterial({ color: 0x071117, metalness: 0.35, roughness: 0.18, clearcoat: 0.65, clearcoatRoughness: 0.1 });
+function brushedMetalTexture() {
+  const textureCanvas = document.createElement('canvas');
+  textureCanvas.width = 128; textureCanvas.height = 128;
+  const context = textureCanvas.getContext('2d');
+  context.fillStyle = '#6c7173'; context.fillRect(0, 0, 128, 128);
+  for (let y = 0; y < 128; y += 3) {
+    const shade = 92 + ((y * 17) % 17);
+    context.fillStyle = `rgba(${shade + 22},${shade + 24},${shade + 25},.13)`;
+    context.fillRect(0, y, 128, 1);
+  }
+  const texture = new THREE.CanvasTexture(textureCanvas);
+  texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping; texture.repeat.set(5, 8);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+const sheetMetal = brushedMetalTexture();
+const airframe = new THREE.MeshPhysicalMaterial({ color: 0xffffff, map: sheetMetal, metalness: 0.62, roughness: 0.34, clearcoat: 0.16, clearcoatRoughness: 0.28, side: THREE.DoubleSide });
+const panel = new THREE.MeshPhysicalMaterial({ color: 0x73787a, metalness: 0.5, roughness: 0.4, clearcoat: 0.14, side: THREE.DoubleSide });
+const dark = new THREE.MeshPhysicalMaterial({ color: 0x171b1d, metalness: 0.45, roughness: 0.22, clearcoat: 0.45, clearcoatRoughness: 0.16 });
 
 function fuselageGeometry() {
   const rings = [
@@ -123,7 +142,7 @@ const rightTail = new THREE.Mesh(tailGeometry, panel);
 const leftTail = rightTail.clone(); leftTail.scale.x = -1;
 uav.add(rightTail, leftTail);
 
-const seamMaterial = new THREE.MeshStandardMaterial({ color: 0x0d1c23, metalness: 0.55, roughness: 0.3 });
+const seamMaterial = new THREE.MeshStandardMaterial({ color: 0x303638, metalness: 0.62, roughness: 0.33 });
 [-0.92, -0.25, 0.46].forEach((z) => {
   const seam = new THREE.Mesh(new THREE.TorusGeometry(0.215, 0.008, 8, 32), seamMaterial);
   seam.scale.y = 0.82; seam.position.set(0, 0.18, z); uav.add(seam);
@@ -141,6 +160,16 @@ accessHatch.scale.set(1, 0.12, 2.1); accessHatch.position.set(0, 0.39, -0.58); u
 const fastenerGeometry = new THREE.SphereGeometry(0.018, 12, 10);
 [[-0.11, -0.77], [0.11, -0.77], [-0.11, -0.39], [0.11, -0.39]].forEach(([x, z]) => {
   const fastener = new THREE.Mesh(fastenerGeometry, panel); fastener.position.set(x, 0.415, z); uav.add(fastener);
+});
+[-1, 1].forEach((side) => {
+  [0.45, 0.78, 1.12, 1.46].forEach((distance) => {
+    [-0.22, 0.2].forEach((z) => {
+      const rivet = new THREE.Mesh(fastenerGeometry, panel);
+      rivet.position.set(side * distance, 0.255 - distance * 0.025, z); uav.add(rivet);
+    });
+  });
+  const wingPanel = new THREE.Mesh(new THREE.SphereGeometry(0.13, 20, 14), dark);
+  wingPanel.scale.set(1.15, 0.09, 1.65); wingPanel.position.set(side * 0.92, 0.245, 0.03); uav.add(wingPanel);
 });
 
 const sensor = new THREE.Mesh(new THREE.SphereGeometry(0.075, 24, 18), dark);
@@ -175,6 +204,10 @@ let pointerDown = false;
 let moved = false;
 let lastX = 0;
 let lastY = 0;
+let inspectionStart = null;
+
+window.addEventListener('uav:inspect', () => { inspectionStart = performance.now(); });
+window.addEventListener('uav:return', () => { inspectionStart = null; camera.position.copy(hangarCamera); camera.lookAt(0, 0, 0); });
 
 function resize() {
   const { width, height } = canvas.getBoundingClientRect();
@@ -204,7 +237,10 @@ function frame(now) {
   if (!landed) targetYaw += 0.0018;
   yaw += (targetYaw - yaw) * 0.085;
   pitch += (targetPitch - pitch) * 0.085;
-  uav.rotation.set(pitch, yaw, 0);
+  const inspectionProgress = inspectionStart === null ? 0 : 1 - Math.pow(1 - THREE.MathUtils.clamp((now - inspectionStart) / 1050, 0, 1), 3);
+  uav.rotation.set(THREE.MathUtils.lerp(pitch, 0, inspectionProgress), THREE.MathUtils.lerp(yaw, 0, inspectionProgress), 0);
+  camera.position.lerpVectors(hangarCamera, inspectionCamera, inspectionProgress);
+  camera.lookAt(0, 0.1, 0);
   if (progress === 1) landed = true;
   pusher.rotation.z += landed ? 0.025 : 0.23;
   shadow.scale.setScalar(THREE.MathUtils.lerp(0.25, 1, eased));
