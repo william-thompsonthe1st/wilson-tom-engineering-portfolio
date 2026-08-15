@@ -11,6 +11,12 @@ camera.position.set(0, 3.5, 7.5);
 camera.lookAt(0, 0, 0);
 const hangarCamera = camera.position.clone();
 const inspectionCamera = new THREE.Vector3(0, 7.25, 0.18);
+const inspectionPath = new THREE.CatmullRomCurve3([
+  hangarCamera.clone(),
+  new THREE.Vector3(0, 2.85, 5.35),
+  new THREE.Vector3(0, 4.55, 2.8),
+  inspectionCamera,
+]);
 scene.add(new THREE.HemisphereLight(0xd9f7ff, 0x0a1218, 2.1));
 const key = new THREE.DirectionalLight(0xf4fbff, 3.3); key.position.set(-4, 6, 4); scene.add(key);
 const rim = new THREE.PointLight(0x62d7ff, 10, 11); rim.position.set(3, 3, -3); scene.add(rim);
@@ -205,9 +211,12 @@ let moved = false;
 let lastX = 0;
 let lastY = 0;
 let inspectionStart = null;
+let orbitMode = false;
 
 window.addEventListener('uav:inspect', () => { inspectionStart = performance.now(); });
 window.addEventListener('uav:return', () => { inspectionStart = null; camera.position.copy(hangarCamera); camera.lookAt(0, 0, 0); });
+window.addEventListener('uav:orbit', () => { orbitMode = !orbitMode; });
+window.addEventListener('uav:reset', () => { orbitMode = false; targetYaw = 0; targetPitch = -0.035; yaw = 0; pitch = -0.035; });
 
 function resize() {
   const { width, height } = canvas.getBoundingClientRect();
@@ -218,7 +227,7 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-canvas.addEventListener('pointerdown', (event) => { pointerDown = true; moved = false; lastX = event.clientX; lastY = event.clientY; canvas.setPointerCapture(event.pointerId); });
+canvas.addEventListener('pointerdown', (event) => { orbitMode = false; pointerDown = true; moved = false; lastX = event.clientX; lastY = event.clientY; canvas.setPointerCapture(event.pointerId); });
 canvas.addEventListener('pointermove', (event) => {
   if (!pointerDown || !landed) return;
   const dx = event.clientX - lastX; const dy = event.clientY - lastY;
@@ -235,11 +244,12 @@ function frame(now) {
   uav.position.set(0, THREE.MathUtils.lerp(3.8, -0.01, eased), THREE.MathUtils.lerp(10, 0, eased));
   uav.scale.setScalar(THREE.MathUtils.lerp(0.27, 1.12, eased));
   if (!landed) targetYaw += 0.0018;
+  if (landed && orbitMode && inspectionStart === null) targetYaw += 0.0022;
   yaw += (targetYaw - yaw) * 0.085;
   pitch += (targetPitch - pitch) * 0.085;
-  const inspectionProgress = inspectionStart === null ? 0 : 1 - Math.pow(1 - THREE.MathUtils.clamp((now - inspectionStart) / 1050, 0, 1), 3);
+  const inspectionProgress = inspectionStart === null ? 0 : 1 - Math.pow(1 - THREE.MathUtils.clamp((now - inspectionStart) / 1450, 0, 1), 3);
   uav.rotation.set(THREE.MathUtils.lerp(pitch, 0, inspectionProgress), THREE.MathUtils.lerp(yaw, 0, inspectionProgress), 0);
-  camera.position.lerpVectors(hangarCamera, inspectionCamera, inspectionProgress);
+  camera.position.copy(inspectionPath.getPointAt(inspectionProgress));
   camera.lookAt(0, 0.1, 0);
   if (progress === 1) landed = true;
   pusher.rotation.z += landed ? 0.025 : 0.23;
