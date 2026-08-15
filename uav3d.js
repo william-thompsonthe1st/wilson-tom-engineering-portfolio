@@ -9,70 +9,128 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 100);
 camera.position.set(0, 3.5, 7.5);
 camera.lookAt(0, 0, 0);
-scene.add(new THREE.HemisphereLight(0xd2f5ff, 0x091118, 2.1));
-const key = new THREE.DirectionalLight(0xf2fbff, 3.3); key.position.set(-4, 6, 4); scene.add(key);
-const rim = new THREE.PointLight(0x50cbff, 9, 10); rim.position.set(3, 2, -3); scene.add(rim);
+scene.add(new THREE.HemisphereLight(0xd9f7ff, 0x0a1218, 2.1));
+const key = new THREE.DirectionalLight(0xf4fbff, 3.3); key.position.set(-4, 6, 4); scene.add(key);
+const rim = new THREE.PointLight(0x62d7ff, 10, 11); rim.position.set(3, 3, -3); scene.add(rim);
 
 const uav = new THREE.Group();
-const modelScale = 1.14;
-uav.scale.setScalar(modelScale);
+uav.scale.setScalar(1.12);
 
-// A new smooth shell, proportioned from the inspection view rather than assembled from boxes.
-const shellShape = new THREE.Shape();
-shellShape.moveTo(0, 1.78);
-shellShape.bezierCurveTo(0.08, 1.78, 0.16, 1.62, 0.19, 1.42);
-shellShape.lineTo(0.26, 0.48);
-shellShape.bezierCurveTo(0.28, 0.39, 0.4, 0.35, 0.58, 0.34);
-shellShape.lineTo(1.8, 0.24);
-shellShape.bezierCurveTo(1.96, 0.23, 2.0, 0.12, 1.98, -0.05);
-shellShape.bezierCurveTo(1.98, -0.11, 1.92, -0.14, 1.8, -0.16);
-shellShape.lineTo(0.37, -0.32);
-shellShape.lineTo(0.28, -0.96);
-shellShape.bezierCurveTo(0.3, -1.08, 0.57, -1.3, 0.7, -1.43);
-shellShape.lineTo(0.64, -1.7);
-shellShape.lineTo(0.25, -1.55);
-shellShape.lineTo(0.16, -1.78);
-shellShape.lineTo(0, -1.84);
-shellShape.lineTo(-0.16, -1.78);
-shellShape.lineTo(-0.25, -1.55);
-shellShape.lineTo(-0.64, -1.7);
-shellShape.lineTo(-0.7, -1.43);
-shellShape.bezierCurveTo(-0.57, -1.3, -0.3, -1.08, -0.28, -0.96);
-shellShape.lineTo(-0.37, -0.32);
-shellShape.lineTo(-1.8, -0.16);
-shellShape.bezierCurveTo(-1.92, -0.14, -1.98, -0.11, -1.98, -0.05);
-shellShape.bezierCurveTo(-2.0, 0.12, -1.96, 0.23, -1.8, 0.24);
-shellShape.lineTo(-0.58, 0.34);
-shellShape.bezierCurveTo(-0.4, 0.35, -0.28, 0.39, -0.26, 0.48);
-shellShape.lineTo(-0.19, 1.42);
-shellShape.bezierCurveTo(-0.16, 1.62, -0.08, 1.78, 0, 1.78);
+const airframe = new THREE.MeshPhysicalMaterial({ color: 0x314b58, metalness: 0.56, roughness: 0.3, clearcoat: 0.28, clearcoatRoughness: 0.22, side: THREE.DoubleSide });
+const panel = new THREE.MeshPhysicalMaterial({ color: 0x54727d, metalness: 0.43, roughness: 0.36, clearcoat: 0.18, side: THREE.DoubleSide });
+const dark = new THREE.MeshPhysicalMaterial({ color: 0x071117, metalness: 0.35, roughness: 0.18, clearcoat: 0.65, clearcoatRoughness: 0.1 });
 
-const shellGeometry = new THREE.ExtrudeGeometry(shellShape, {
-  depth: 0.3,
-  bevelEnabled: true,
-  bevelSegments: 6,
-  bevelSize: 0.08,
-  bevelThickness: 0.08,
-  curveSegments: 32,
-});
-const shellMaterial = new THREE.MeshPhysicalMaterial({ color: 0x173b48, metalness: 0.62, roughness: 0.27, clearcoat: 0.4, clearcoatRoughness: 0.25 });
-const shell = new THREE.Mesh(shellGeometry, shellMaterial);
-shell.rotation.x = -Math.PI / 2;
-uav.add(shell);
+function fuselageGeometry() {
+  const rings = [
+    [-1.75, 0.015, 0.015], [-1.64, 0.1, 0.09], [-1.44, 0.17, 0.14], [-1.08, 0.205, 0.17],
+    [-0.35, 0.225, 0.19], [0.38, 0.22, 0.185], [0.88, 0.19, 0.16], [1.25, 0.145, 0.125],
+    [1.56, 0.1, 0.095], [1.73, 0.045, 0.045],
+  ];
+  const radial = 32;
+  const vertices = [];
+  const indices = [];
+  rings.forEach(([z, rx, ry]) => {
+    for (let i = 0; i < radial; i += 1) {
+      const theta = (i / radial) * Math.PI * 2;
+      vertices.push(Math.cos(theta) * rx, 0.18 + Math.sin(theta) * ry, z);
+    }
+  });
+  for (let ring = 0; ring < rings.length - 1; ring += 1) {
+    for (let i = 0; i < radial; i += 1) {
+      const next = (i + 1) % radial;
+      const a = ring * radial + i;
+      const b = ring * radial + next;
+      const c = (ring + 1) * radial + next;
+      const d = (ring + 1) * radial + i;
+      indices.push(a, b, d, b, c, d);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
 
-const inspectionTexture = new THREE.TextureLoader().load('uav-topdown.png');
-inspectionTexture.colorSpace = THREE.SRGBColorSpace;
-inspectionTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-// The precise inspection asset becomes the upper skin, so the CAD model stays one-to-one in plan view.
-const upperSkin = new THREE.Mesh(
-  new THREE.PlaneGeometry(4.05, 4.05),
-  new THREE.MeshStandardMaterial({ map: inspectionTexture, transparent: true, opacity: 0.98, metalness: 0.34, roughness: 0.39, depthWrite: false, side: THREE.DoubleSide }),
-);
-upperSkin.rotation.x = -Math.PI / 2;
-upperSkin.position.y = 0.39;
-uav.add(upperSkin);
+const fuselage = new THREE.Mesh(fuselageGeometry(), airframe);
+uav.add(fuselage);
 
-const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.58, 48), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, depthWrite: false }));
+function airfoilWingGeometry(stations) {
+  const chordSteps = 10;
+  const vertices = [];
+  const indices = [];
+  const addSurface = (top) => {
+    stations.forEach(([x, leading, trailing, baseY, thickness]) => {
+      for (let j = 0; j <= chordSteps; j += 1) {
+        const t = j / chordSteps;
+        const camber = Math.sin(Math.PI * t) * thickness * 0.3;
+        const profile = Math.sin(Math.PI * t) * thickness;
+        vertices.push(x, baseY + camber + (top ? profile : -profile), THREE.MathUtils.lerp(leading, trailing, t));
+      }
+    });
+  };
+  addSurface(true);
+  addSurface(false);
+  const row = chordSteps + 1;
+  const half = stations.length * row;
+  for (let i = 0; i < stations.length - 1; i += 1) {
+    for (let j = 0; j < chordSteps; j += 1) {
+      const a = i * row + j;
+      const b = a + 1;
+      const c = a + row + 1;
+      const d = a + row;
+      indices.push(a, b, d, b, c, d);
+      indices.push(half + a, half + d, half + b, half + b, half + d, half + c);
+    }
+  }
+  for (let j = 0; j < chordSteps; j += 1) {
+    const a = j; const b = j + 1; const c = half + j + 1; const d = half + j;
+    indices.push(a, d, b, b, d, c);
+    const end = (stations.length - 1) * row;
+    indices.push(end + b, half + end + b, end + a, end + a, half + end + b, half + end + a);
+  }
+  for (let i = 0; i < stations.length - 1; i += 1) {
+    const a = i * row; const b = a + row; const c = half + b; const d = half + a;
+    indices.push(a, b, d, b, c, d);
+    const trailing = i * row + chordSteps; const trailingNext = trailing + row;
+    indices.push(trailingNext, trailing, half + trailingNext, trailing, half + trailing, half + trailingNext);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+const mainWingGeometry = airfoilWingGeometry([
+  [0.18, -0.42, 0.37, 0.17, 0.06], [0.55, -0.38, 0.35, 0.17, 0.07],
+  [1.1, -0.31, 0.31, 0.16, 0.06], [1.63, -0.24, 0.27, 0.15, 0.045], [1.98, -0.18, 0.21, 0.14, 0.025],
+]);
+const rightWing = new THREE.Mesh(mainWingGeometry, airframe);
+const leftWing = rightWing.clone(); leftWing.scale.x = -1;
+uav.add(rightWing, leftWing);
+
+const tailGeometry = airfoilWingGeometry([
+  [0.1, 1.18, 1.58, 0.23, 0.04], [0.36, 1.42, 1.76, 0.37, 0.045], [0.72, 1.55, 1.88, 0.56, 0.035],
+]);
+const rightTail = new THREE.Mesh(tailGeometry, panel);
+const leftTail = rightTail.clone(); leftTail.scale.x = -1;
+uav.add(rightTail, leftTail);
+
+const sensor = new THREE.Mesh(new THREE.SphereGeometry(0.075, 24, 18), dark);
+sensor.scale.set(1, 0.72, 1.1); sensor.position.set(0, 0.02, -0.48); uav.add(sensor);
+const antennaGeometry = new THREE.CylinderGeometry(0.012, 0.012, 0.28, 14);
+[-0.86, 0.86].forEach((x) => { const antenna = new THREE.Mesh(antennaGeometry, dark); antenna.position.set(x, 0.33, -0.06); uav.add(antenna); });
+
+const pusher = new THREE.Group();
+pusher.position.set(0, 0.18, 1.78);
+const hub = new THREE.Mesh(new THREE.SphereGeometry(0.09, 20, 16), dark); pusher.add(hub);
+const bladeGeometry = new THREE.CapsuleGeometry(0.028, 0.72, 6, 14);
+const bladeA = new THREE.Mesh(bladeGeometry, panel); bladeA.rotation.z = 0.52; pusher.add(bladeA);
+const bladeB = bladeA.clone(); bladeB.rotation.z += Math.PI / 2; pusher.add(bladeB);
+uav.add(pusher);
+
+const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.62, 48), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.26, depthWrite: false }));
 shadow.rotation.x = -Math.PI / 2;
 shadow.position.y = -0.16;
 scene.add(shadow);
@@ -101,9 +159,7 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-canvas.addEventListener('pointerdown', (event) => {
-  pointerDown = true; moved = false; lastX = event.clientX; lastY = event.clientY; canvas.setPointerCapture(event.pointerId);
-});
+canvas.addEventListener('pointerdown', (event) => { pointerDown = true; moved = false; lastX = event.clientX; lastY = event.clientY; canvas.setPointerCapture(event.pointerId); });
 canvas.addEventListener('pointermove', (event) => {
   if (!pointerDown || !landed) return;
   const dx = event.clientX - lastX; const dy = event.clientY - lastY;
@@ -112,24 +168,21 @@ canvas.addEventListener('pointermove', (event) => {
   targetPitch = THREE.MathUtils.clamp(targetPitch + dy * 0.005, -0.34, 0.14);
   lastX = event.clientX; lastY = event.clientY;
 });
-canvas.addEventListener('pointerup', (event) => {
-  pointerDown = false;
-  if (!moved && landed) document.querySelector('.drone-hit')?.click();
-  if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-});
+canvas.addEventListener('pointerup', (event) => { pointerDown = false; if (!moved && landed) document.querySelector('.drone-hit')?.click(); if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId); });
 
 function frame(now) {
   const progress = THREE.MathUtils.clamp((now - landingStart) / 2200, 0, 1);
   const eased = 1 - Math.pow(1 - progress, 4);
   uav.position.set(0, THREE.MathUtils.lerp(3.8, -0.01, eased), THREE.MathUtils.lerp(10, 0, eased));
-  uav.scale.setScalar(THREE.MathUtils.lerp(modelScale * 0.24, modelScale, eased));
+  uav.scale.setScalar(THREE.MathUtils.lerp(0.27, 1.12, eased));
   if (!landed) targetYaw += 0.0018;
   yaw += (targetYaw - yaw) * 0.085;
   pitch += (targetPitch - pitch) * 0.085;
   uav.rotation.set(pitch, yaw, 0);
   if (progress === 1) landed = true;
+  pusher.rotation.z += landed ? 0.025 : 0.23;
   shadow.scale.setScalar(THREE.MathUtils.lerp(0.25, 1, eased));
-  shadow.material.opacity = THREE.MathUtils.lerp(0.02, 0.25, eased);
+  shadow.material.opacity = THREE.MathUtils.lerp(0.02, 0.26, eased);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
