@@ -30,7 +30,7 @@ function fuselageGeometry() {
   const vertices = [];
   const uvs = [];
   const indices = [];
-  rings.forEach(([z, rx, ry]) => {
+  rings.forEach(([z, rx, ry], ring) => {
     for (let i = 0; i < radial; i += 1) {
       const theta = (i / radial) * Math.PI * 2;
       vertices.push(Math.cos(theta) * rx, 0.18 + Math.sin(theta) * ry, z);
